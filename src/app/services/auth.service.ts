@@ -1,5 +1,5 @@
 
-import {filter} from 'rxjs/operators';
+import {filter, shareReplay, tap} from 'rxjs/operators';
 import {Injectable} from '@angular/core';
 import {HttpClient} from "@angular/common/http";
 import {Observable, BehaviorSubject} from "rxjs";
@@ -31,14 +31,16 @@ export class AuthService {
 
     private userSubject = new BehaviorSubject<User>(undefined);
 
-    user$: Observable<User> = this.userSubject.asObservable().pipe(filter(user => !!user));
+    user$: Observable<User> = this.userSubject.asObservable().pipe(filter(user => !!undefined));
 
     constructor(private http: HttpClient, private router: Router) {
-
+      if(this.isLoggedIn()){
+        this.userInfo();
+      }
     }
 
     login() {
-      this.auth0.authorize();
+      this.auth0.authorize({initialScreen:'login'});
 
     }
 
@@ -69,6 +71,8 @@ export class AuthService {
           window.location.hash = '';
           console.log("Authentication successful, authResult: ", authResult);
           this.setSession(authResult);
+
+          this.userInfo();
         }
       });
     }
@@ -84,6 +88,11 @@ export class AuthService {
 
     localStorage.setItem('id_token', authResult.idToken);
     localStorage.setItem('expires_at', JSON.stringify(expiresAt.valueOf()));
+  }
+
+  private userInfo() {
+    this.http.put<User>('/api/userinfo', null)
+      .pipe(shareReplay()).pipe(tap(user => this.userSubject.next(user))).subscribe();
   }
 }
 
